@@ -37,6 +37,7 @@ flowchart LR
 ## Decisions
 
 - **URL-only features.** The dataset also has page-content features (title, forms, scripts), and they make the task much easier. But using them means fetching the attacker's page, which is slow and unsafe in a browser extension. I'll train a page-feature model once as a comparison to show what's lost.
+- **Hostname only, not the full URL (added Day 2).** In PhiUSIIL every legitimate URL is a bare `https://www.<domain>` homepage, while phishing URLs have paths, `http`, no `www.`, and so on. A one-line regex on that format scores 99.56% accuracy with no ML. A model on full URLs would learn the collection method, not phishing. Path features wait until there are legit URLs with real paths from another source.
 - **The main metric is recall on phishing at a fixed false-positive rate.** A missed phishing link is the expensive mistake. Too many false alarms train people to ignore the banner, so the false-positive rate gets a hard ceiling (for example 1%) and recall is maximised under it.
 - **Split by domain, not by row.** The same domain can appear many times. A random row split lets the model memorise domains and look better than it is.
 - **Feature extractor is a pure function with unit tests.** The same code runs in training and in the API, so they can't drift apart.

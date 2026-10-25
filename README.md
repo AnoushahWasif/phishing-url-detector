@@ -6,9 +6,13 @@ Flags phishing links from the URL text alone, without opening the page. Trained 
 
 URL-only matters for two reasons: it's fast enough to run before a page loads, and it never fetches anything from an attacker's server. The cost is less information to work with, and the project measures how much accuracy that costs.
 
+## Early finding: the dataset has a shortcut
+
+Every legitimate URL in PhiUSIIL is a bare homepage like `https://www.example.org`, and none of them have a path or sit on free hosting. A one-line regex ("is it a bare `https://www.` homepage?") gets **99.56% accuracy** with no machine learning at all. Models trained on raw URLs would learn that formatting difference instead of phishing, so this project trains on the **hostname only** and reports results there. Details in [notebooks/01_eda.ipynb](notebooks/01_eda.ipynb).
+
 ## Plan
 
-- [ ] EDA: URL length, TLDs, subdomains, HTTPS, class balance
+- [x] EDA: URL length, TLDs, subdomains, HTTPS, class balance
 - [ ] URL-only feature extractor with tests
 - [ ] Baselines (logistic regression, random forest), judged mostly on missed phishing
 - [ ] LightGBM and a character-level model on raw URL text

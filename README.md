@@ -10,11 +10,24 @@ URL-only matters for two reasons: it's fast enough to run before a page loads, a
 
 Every legitimate URL in PhiUSIIL is a bare homepage like `https://www.example.org`, and none of them have a path or sit on free hosting. A one-line regex ("is it a bare `https://www.` homepage?") gets **99.56% accuracy** with no machine learning at all. Models trained on raw URLs would learn that formatting difference instead of phishing, so this project trains on the **hostname only** and reports results there. Details in [notebooks/01_eda.ipynb](notebooks/01_eda.ipynb).
 
+## Results so far (hostname only, test domains never seen in training)
+
+Threshold chosen on a validation slice for at most 1% false alarms, then applied unchanged to the test set (47k URLs).
+
+| Model | Phishing caught | Missed | False-alarm rate | PR-AUC |
+|-------|-----------------|--------|------------------|--------|
+| Logistic regression | 57.9% | 7,583 | 1.15% | 0.874 |
+| Random forest | 60.3% | 7,148 | 0.92% | 0.880 |
+
+A random row split instead of the domain split would report 61.9% and 65.9%: 4–6 points too optimistic, because the model gets to see other pages of the same domains in training.
+
+These are deliberately unflattering numbers. With the hostname alone, about 40% of phishing hosts look ordinary (`maria.susypro.com`). Day 5 tries LightGBM and a character-level model on the raw hostname text.
+
 ## Plan
 
 - [x] EDA: URL length, TLDs, subdomains, HTTPS, class balance
-- [ ] URL-only feature extractor with tests
-- [ ] Baselines (logistic regression, random forest), judged mostly on missed phishing
+- [x] URL-only feature extractor with tests
+- [x] Baselines (logistic regression, random forest), judged mostly on missed phishing
 - [ ] LightGBM and a character-level model on raw URL text
 - [ ] Robustness: homoglyphs, URL shorteners, long paths. Where does it break?
 - [ ] FastAPI `/score` endpoint + Docker

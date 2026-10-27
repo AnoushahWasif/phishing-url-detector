@@ -70,6 +70,7 @@ def extract(url: str) -> dict:
         "has_punycode": int("xn--" in host),
         "on_free_host": int(on_free_host(host)),
         "tld": "" if ip or not labels else labels[-1],
+        "host": host,
     }
 
 
@@ -77,5 +78,8 @@ def extract_many(urls) -> pd.DataFrame:
     return pd.DataFrame([extract(u) for u in urls])
 
 
-NUMERIC_FEATURES = [k for k in extract("example.com") if k != "tld"]
 CATEGORICAL_FEATURES = ["tld"]
+TEXT_FEATURE = "host"
+NUMERIC_FEATURES = [
+    k for k in extract("example.com") if k not in (*CATEGORICAL_FEATURES, TEXT_FEATURE)
+]

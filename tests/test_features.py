@@ -75,5 +75,10 @@ def test_empty_url_does_not_crash():
 
 def test_extract_many_columns():
     df = features.extract_many(["https://a.com", "http://b.org"])
-    assert list(df.columns) == features.NUMERIC_FEATURES + features.CATEGORICAL_FEATURES
+    assert list(df.columns) == [
+        *features.NUMERIC_FEATURES,
+        *features.CATEGORICAL_FEATURES,
+        features.TEXT_FEATURE,
+    ]
+    assert list(df["host"]) == ["a.com", "b.org"]
     assert len(df) == 2

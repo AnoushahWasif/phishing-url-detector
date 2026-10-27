@@ -44,7 +44,11 @@ def hostname(url: str) -> str:
     """Host part only, lower-cased, without scheme, port or a leading 'www.'."""
     rest = url.split("://", 1)[-1]
     host = rest.split("/", 1)[0].split("?", 1)[0].split("#", 1)[0]
-    host = host.rsplit("@", 1)[-1].split(":", 1)[0].lower()
+    host = host.rsplit("@", 1)[-1]
+    # In an IPv6 literal like [::1]:8080 the colons belong to the address, not a port.
+    ipv6 = host.startswith("[")
+    host = host[: host.find("]") + 1] if ipv6 else host.split(":", 1)[0]
+    host = host.lower()
     return host.removeprefix("www.")
 
 

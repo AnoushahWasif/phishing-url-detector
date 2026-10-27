@@ -15,6 +15,7 @@ from phishing import data
         ("https://sub.www.example.com/", "sub.www.example.com"),
         ("https://xn--pypal-4ve.com/#a", "xn--pypal-4ve.com"),
         ("example.com/no-scheme", "example.com"),
+        ("http://[::1]:8080/", "[::1]"),
     ],
 )
 def test_hostname(url, expected):

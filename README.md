@@ -14,21 +14,28 @@ Every legitimate URL in PhiUSIIL is a bare homepage like `https://www.example.or
 
 Threshold chosen on a validation slice for at most 1% false alarms, then applied unchanged to the test set (47k URLs).
 
-| Model | Phishing caught | Missed | False-alarm rate | PR-AUC |
-|-------|-----------------|--------|------------------|--------|
-| Logistic regression | 57.9% | 7,583 | 1.15% | 0.874 |
-| Random forest | 60.3% | 7,148 | 0.92% | 0.880 |
+| Model | Phishing caught | Missed | False-alarm rate | PR-AUC | Fit time |
+|-------|-----------------|--------|------------------|--------|----------|
+| Logistic regression (11 features + TLD) | 57.9% | 7,583 | 1.15% | 0.874 | 4 s |
+| Random forest (same features) | 60.3% | 7,148 | 0.92% | 0.880 | 61 s |
+| LightGBM (same features) | 61.7% | 6,889 | 1.00% | 0.885 | 8 s |
+| Character 2–5 grams of the hostname + logistic regression | **62.5%** | **6,749** | 0.99% | **0.908** | 9 s |
 
-A random row split instead of the domain split would report 61.9% and 65.9%: 4–6 points too optimistic, because the model gets to see other pages of the same domains in training.
+![Recall against false-alarm rate for the four models](reports/figures/recall_vs_fpr.png)
 
-These are deliberately unflattering numbers. With the hostname alone, about 40% of phishing hosts look ordinary (`maria.susypro.com`). Day 5 tries LightGBM and a character-level model on the raw hostname text.
+- At the 1% budget the four models are within 5 points of each other. The hand-made features have run out of signal more than the models have run out of capacity.
+- The character model needs no feature code at all and is the best at every false-alarm rate above about 0.7%. Its ROC-AUC is 0.910 against 0.874–0.884 for the rest, so it ranks the "hard middle" better.
+- LightGBM matches the random forest's recall at an eighth of the training time.
+- A random row split instead of the domain split would have reported 61.9% and 65.9% for the first two: 4–6 points too optimistic, because the model gets to see other pages of the same domains in training.
+
+These are still unflattering numbers. With the hostname alone, roughly 40% of phishing hosts look ordinary (`maria.susypro.com`). Day 6 attacks the models on purpose (homoglyphs, shorteners, padded subdomains) to see where each one breaks.
 
 ## Plan
 
 - [x] EDA: URL length, TLDs, subdomains, HTTPS, class balance
 - [x] URL-only feature extractor with tests
 - [x] Baselines (logistic regression, random forest), judged mostly on missed phishing
-- [ ] LightGBM and a character-level model on raw URL text
+- [x] LightGBM and a character-level model on the hostname text
 - [ ] Robustness: homoglyphs, URL shorteners, long paths. Where does it break?
 - [ ] FastAPI `/score` endpoint + Docker
 - [ ] Chrome extension (TypeScript, Manifest V3)

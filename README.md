@@ -30,13 +30,35 @@ Threshold chosen on a validation slice for at most 1% false alarms, then applied
 
 These are still unflattering numbers. With the hostname alone, roughly 40% of phishing hosts look ordinary (`maria.susypro.com`). Day 6 attacks the models on purpose (homoglyphs, shorteners, padded subdomains) to see where each one breaks.
 
+## Attacking it: where the models break
+
+I took the test-set phishing each model already catches (10,410 to 11,244 URLs) and applied tricks an attacker fully controls. The table shows how many then slip under the 1% false-alarm threshold. Code: [attacks.py](src/phishing/attacks.py), [robustness.py](src/phishing/robustness.py).
+
+| Attack | Example | Char n-grams | LightGBM | Logistic reg. | Random forest |
+|--------|---------|--------------|----------|---------------|---------------|
+| Move to a `.com` | `evil.xyz` → `evil.com` | 16.2% | 13.8% | 22.8% | 13.2% |
+| Drop hyphens and digits | `secure-login-1.xyz` → `securelogin.xyz` | 7.2% | 4.9% | 6.8% | 6.2% |
+| Cyrillic lookalike letters, before fix | `pаypаl.com` (Cyrillic а) | 15.8% | 0.9% | 4.4% | 3.1% |
+| Cyrillic lookalike letters, after fix | same | 0% | 0% | 0% | 0.3% |
+| Brand name as subdomain | `accounts.google.com.evil.xyz` | 0% | 0% | 0% | 0% |
+| Long path and query | `evil.xyz/account/account/...` | 0% | 0% | 0% | 0% |
+
+- **The fix:** lookalike hosts typed in Unicode were kept as Unicode, so the "punycode" feature never fired and the character model saw letters it had never met. Browsers and DNS use the `xn--` form, so the hostname is now converted to it first. Same domain, same features.
+- **The open weakness:** buying a `.com` instead of a cheap TLD gets 13–23% of caught phishing through. The models lean on the TLD more than they should. Fixing that needs data where legitimate and phishing sites share TLDs, not a code change.
+- **Long paths can't help** an attacker, by design: the features only look at the hostname.
+
+Two "0%" results that are not strengths:
+
+- **URL shorteners:** every `bit.ly` and `tinyurl.com` link in the dataset is phishing (289 of 289), so the models flag the shortener itself. A real extension would flag every legitimate short link too. The honest fix is to follow the redirect first, which a URL-only model can't do.
+- **Free hosting** (`*.web.app`, `*.github.io`): the dataset has no legitimate sites there, so the models flag all of them, including real GitHub Pages sites.
+
 ## Plan
 
 - [x] EDA: URL length, TLDs, subdomains, HTTPS, class balance
 - [x] URL-only feature extractor with tests
 - [x] Baselines (logistic regression, random forest), judged mostly on missed phishing
 - [x] LightGBM and a character-level model on the hostname text
-- [ ] Robustness: homoglyphs, URL shorteners, long paths. Where does it break?
+- [x] Robustness: homoglyphs, URL shorteners, long paths. Where does it break?
 - [ ] FastAPI `/score` endpoint + Docker
 - [ ] Chrome extension (TypeScript, Manifest V3)
 - [ ] CI with security scans

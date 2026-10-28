@@ -1,5 +1,6 @@
 import json
 import time
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -71,32 +72,48 @@ def models() -> dict[str, Pipeline]:
     }
 
 
-def run() -> pd.DataFrame:
-    df = load()
+@dataclass
+class Trained:
+    models: dict[str, Pipeline]
+    thresholds: dict[str, float]
+    test: pd.DataFrame
+    X_test: pd.DataFrame
+    fit_seconds: dict[str, float]
+
+
+def fit_all(df: pd.DataFrame | None = None) -> Trained:
+    df = load() if df is None else df
     train, test = grouped_split(df, seed=SEED)
     # Threshold comes from a separate validation slice: a model's scores on its own
     # training rows are over-confident, so a threshold picked there misses the FPR target.
     fit, val = grouped_split(train, test_size=0.2, seed=SEED)
     X_fit, X_val, X_test = (extract_many(part["url"]) for part in (fit, val, test))
-    y_fit, y_val, y_test = (part["is_phishing"].to_numpy() for part in (fit, val, test))
+    y_fit, y_val = (part["is_phishing"].to_numpy() for part in (fit, val))
 
-    rows, test_scores = [], {}
+    fitted, thresholds, seconds = {}, {}, {}
     for name, model in models().items():
         start = time.perf_counter()
-        model.fit(X_fit, y_fit)
-        fit_seconds = time.perf_counter() - start
+        fitted[name] = model.fit(X_fit, y_fit)
+        seconds[name] = round(time.perf_counter() - start, 1)
+        thresholds[name] = threshold_at_fpr(y_val, model.predict_proba(X_val)[:, 1])
+    return Trained(fitted, thresholds, test, X_test, seconds)
 
-        threshold = threshold_at_fpr(y_val, model.predict_proba(X_val)[:, 1])
+
+def run() -> pd.DataFrame:
+    trained = fit_all()
+    y_test = trained.test["is_phishing"].to_numpy()
+    rows, test_scores = [], {}
+    for name, model in trained.models.items():
         start = time.perf_counter()
-        scores = model.predict_proba(X_test)[:, 1]
-        ms_per_1k = (time.perf_counter() - start) / len(X_test) * 1e6
+        scores = model.predict_proba(trained.X_test)[:, 1]
+        ms_per_1k = (time.perf_counter() - start) / len(trained.X_test) * 1e6
         test_scores[name] = scores
         rows.append(
             {
                 "model": name,
-                "fit_seconds": round(fit_seconds, 1),
+                "fit_seconds": trained.fit_seconds[name],
                 "ms_per_1k_urls": round(ms_per_1k, 2),
-                **evaluate(y_test, scores, threshold),
+                **evaluate(y_test, scores, trained.thresholds[name]),
             }
         )
         print(f"{name}: recall {rows[-1]['recall']:.3f}, fpr {rows[-1]['false_positive_rate']:.4f}")

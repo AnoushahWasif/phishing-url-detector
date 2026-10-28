@@ -68,8 +68,11 @@ def test_odd_urls_get_a_valid_score(fitted, url):
 
 def test_scoring_is_deterministic(fitted):
     X, _ = synthetic(50, seed=2)
+    # Not bit-for-bit: the random forest adds tree outputs from parallel threads in whatever
+    # order they finish, so sums can differ in the last float digit between calls.
     for name, model in fitted.items():
-        np.testing.assert_array_equal(model.predict_proba(X), model.predict_proba(X), name)
+        a, b = model.predict_proba(X), model.predict_proba(X)
+        np.testing.assert_allclose(a, b, rtol=0, atol=1e-12, err_msg=name)
 
 
 def test_training_is_reproducible():

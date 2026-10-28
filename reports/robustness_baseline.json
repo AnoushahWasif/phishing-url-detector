@@ -1,0 +1,226 @@
+[
+  {
+    "model": "logistic_regression",
+    "attack": "long_path",
+    "caught_before": 10410,
+    "evaded": 0,
+    "evasion_rate": 0.0
+  },
+  {
+    "model": "logistic_regression",
+    "attack": "homoglyph_unicode",
+    "caught_before": 10410,
+    "evaded": 460,
+    "evasion_rate": 0.04418828049951969
+  },
+  {
+    "model": "logistic_regression",
+    "attack": "homoglyph_punycode",
+    "caught_before": 10410,
+    "evaded": 0,
+    "evasion_rate": 0.0
+  },
+  {
+    "model": "logistic_regression",
+    "attack": "strip_hyphens_digits",
+    "caught_before": 10410,
+    "evaded": 711,
+    "evasion_rate": 0.06829971181556196
+  },
+  {
+    "model": "logistic_regression",
+    "attack": "tld_to_com",
+    "caught_before": 10410,
+    "evaded": 2376,
+    "evasion_rate": 0.2282420749279539
+  },
+  {
+    "model": "logistic_regression",
+    "attack": "brand_subdomain",
+    "caught_before": 10410,
+    "evaded": 0,
+    "evasion_rate": 0.0
+  },
+  {
+    "model": "logistic_regression",
+    "attack": "free_hosting",
+    "caught_before": 10410,
+    "evaded": 0,
+    "evasion_rate": 0.0
+  },
+  {
+    "model": "logistic_regression",
+    "attack": "shortener",
+    "caught_before": 10410,
+    "evaded": 0,
+    "evasion_rate": 0.0
+  },
+  {
+    "model": "random_forest",
+    "attack": "long_path",
+    "caught_before": 10845,
+    "evaded": 0,
+    "evasion_rate": 0.0
+  },
+  {
+    "model": "random_forest",
+    "attack": "homoglyph_unicode",
+    "caught_before": 10845,
+    "evaded": 340,
+    "evasion_rate": 0.03135085292761641
+  },
+  {
+    "model": "random_forest",
+    "attack": "homoglyph_punycode",
+    "caught_before": 10845,
+    "evaded": 35,
+    "evasion_rate": 0.003227293683725219
+  },
+  {
+    "model": "random_forest",
+    "attack": "strip_hyphens_digits",
+    "caught_before": 10845,
+    "evaded": 676,
+    "evasion_rate": 0.062332872291378516
+  },
+  {
+    "model": "random_forest",
+    "attack": "tld_to_com",
+    "caught_before": 10845,
+    "evaded": 1436,
+    "evasion_rate": 0.13241124942369756
+  },
+  {
+    "model": "random_forest",
+    "attack": "brand_subdomain",
+    "caught_before": 10845,
+    "evaded": 2,
+    "evasion_rate": 0.00018441678192715537
+  },
+  {
+    "model": "random_forest",
+    "attack": "free_hosting",
+    "caught_before": 10845,
+    "evaded": 0,
+    "evasion_rate": 0.0
+  },
+  {
+    "model": "random_forest",
+    "attack": "shortener",
+    "caught_before": 10845,
+    "evaded": 0,
+    "evasion_rate": 0.0
+  },
+  {
+    "model": "lightgbm",
+    "attack": "long_path",
+    "caught_before": 11104,
+    "evaded": 0,
+    "evasion_rate": 0.0
+  },
+  {
+    "model": "lightgbm",
+    "attack": "homoglyph_unicode",
+    "caught_before": 11104,
+    "evaded": 104,
+    "evasion_rate": 0.009365994236311239
+  },
+  {
+    "model": "lightgbm",
+    "attack": "homoglyph_punycode",
+    "caught_before": 11104,
+    "evaded": 5,
+    "evasion_rate": 0.00045028818443804033
+  },
+  {
+    "model": "lightgbm",
+    "attack": "strip_hyphens_digits",
+    "caught_before": 11104,
+    "evaded": 543,
+    "evasion_rate": 0.04890129682997118
+  },
+  {
+    "model": "lightgbm",
+    "attack": "tld_to_com",
+    "caught_before": 11104,
+    "evaded": 1531,
+    "evasion_rate": 0.13787824207492796
+  },
+  {
+    "model": "lightgbm",
+    "attack": "brand_subdomain",
+    "caught_before": 11104,
+    "evaded": 2,
+    "evasion_rate": 0.00018011527377521613
+  },
+  {
+    "model": "lightgbm",
+    "attack": "free_hosting",
+    "caught_before": 11104,
+    "evaded": 0,
+    "evasion_rate": 0.0
+  },
+  {
+    "model": "lightgbm",
+    "attack": "shortener",
+    "caught_before": 11104,
+    "evaded": 0,
+    "evasion_rate": 0.0
+  },
+  {
+    "model": "char_ngram_logreg",
+    "attack": "long_path",
+    "caught_before": 11244,
+    "evaded": 0,
+    "evasion_rate": 0.0
+  },
+  {
+    "model": "char_ngram_logreg",
+    "attack": "homoglyph_unicode",
+    "caught_before": 11244,
+    "evaded": 1776,
+    "evasion_rate": 0.15795090715048027
+  },
+  {
+    "model": "char_ngram_logreg",
+    "attack": "homoglyph_punycode",
+    "caught_before": 11244,
+    "evaded": 0,
+    "evasion_rate": 0.0
+  },
+  {
+    "model": "char_ngram_logreg",
+    "attack": "strip_hyphens_digits",
+    "caught_before": 11244,
+    "evaded": 804,
+    "evasion_rate": 0.07150480256136606
+  },
+  {
+    "model": "char_ngram_logreg",
+    "attack": "tld_to_com",
+    "caught_before": 11244,
+    "evaded": 1820,
+    "evasion_rate": 0.16186410530060477
+  },
+  {
+    "model": "char_ngram_logreg",
+    "attack": "brand_subdomain",
+    "caught_before": 11244,
+    "evaded": 0,
+    "evasion_rate": 0.0
+  },
+  {
+    "model": "char_ngram_logreg",
+    "attack": "free_hosting",
+    "caught_before": 11244,
+    "evaded": 1,
+    "evasion_rate": 8.893632159373888e-05
+  },
+  {
+    "model": "char_ngram_logreg",
+    "attack": "shortener",
+    "caught_before": 11244,
+    "evaded": 0,
+    "evasion_rate": 0.0
+  }
+]

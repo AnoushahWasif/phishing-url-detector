@@ -57,6 +57,8 @@ The detector is a security control, so the main threat is attackers **adapting t
 | Mimicking legit stats | Short URL, HTTPS, no digits, common TLD | Beats a model that only learned "phishing URLs are long and ugly" | This is the honest limit of URL-only detection. Report it |
 | Data drift | New TLDs and new kits after the dataset was collected (published 2024) | Recall drops over time | Report the dataset date. Re-check on a fresh feed (PhishTank / OpenPhish) if time allows |
 
+**Measured on Day 6** (full table in the README): Unicode homoglyphs got through up to 15.8% of the time until hostnames were converted to punycode first, after which it was 0–0.3%. Shorteners and free hosting were never missed, but only because the dataset labels every such URL phishing, so legitimate ones would be false alarms. Not predicted here: moving to a `.com` gets 13–23% through, the largest gap found.
+
 ### STRIDE for the API and extension
 
 | STRIDE | Threat | Mitigation |

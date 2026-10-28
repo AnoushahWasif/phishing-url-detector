@@ -48,8 +48,23 @@ def hostname(url: str) -> str:
     # In an IPv6 literal like [::1]:8080 the colons belong to the address, not a port.
     ipv6 = host.startswith("[")
     host = host[: host.find("]") + 1] if ipv6 else host.split(":", 1)[0]
-    host = host.lower()
+    host = to_punycode(host.lower())
     return host.removeprefix("www.")
+
+
+def to_punycode(host: str) -> str:
+    """Non-ASCII labels in their DNS form (xn--...).
+
+    A lookalike domain typed in Cyrillic is the same site as its punycode form, so both
+    must give the same features. Without this, Unicode homoglyphs dodged has_punycode.
+    """
+    labels = []
+    for label in host.split("."):
+        if label.isascii():
+            labels.append(label)
+        else:
+            labels.append("xn--" + label.encode("punycode").decode("ascii"))
+    return ".".join(labels)
 
 
 def load(path: Path | None = None) -> pd.DataFrame:

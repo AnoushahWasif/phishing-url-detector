@@ -39,3 +39,16 @@ def test_download_rejects_bad_checksum(tmp_path):
     (tmp_path / data.ZIP_NAME).write_bytes(b"not the real file")
     with pytest.raises(ValueError, match="Checksum mismatch"):
         data.download(tmp_path)
+
+
+@pytest.mark.parametrize(
+    ("url", "expected"),
+    [
+        ("https://раураl.com/", "xn--l-7sba6dbr.com"),  # Cyrillic lookalike
+        ("https://MÜNCHEN.de", "xn--mnchen-3ya.de"),  # upper-case non-ASCII
+        ("https://xn--l-7sba6dbr.com", "xn--l-7sba6dbr.com"),  # already punycode: unchanged
+        ("https://login.example.com", "login.example.com"),
+    ],
+)
+def test_hostname_uses_punycode_for_non_ascii(url, expected):
+    assert data.hostname(url) == expected

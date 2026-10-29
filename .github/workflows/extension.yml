@@ -1,0 +1,35 @@
+name: Extension
+
+on:
+  push:
+    branches: [main]
+    paths: ["extension/**", ".github/workflows/extension.yml"]
+  pull_request:
+    paths: ["extension/**", ".github/workflows/extension.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  extension:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: extension
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: extension-dist
+          path: extension/dist
+          retention-days: 14

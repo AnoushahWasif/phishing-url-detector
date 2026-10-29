@@ -1,16 +1,52 @@
 # Phishing URL detector
 
-> Work in progress. Started October 2026.
+[![CI](https://github.com/AnoushahWasif/phishing-url-detector/actions/workflows/ci.yml/badge.svg)](https://github.com/AnoushahWasif/phishing-url-detector/actions/workflows/ci.yml) [![Docker](https://github.com/AnoushahWasif/phishing-url-detector/actions/workflows/docker.yml/badge.svg)](https://github.com/AnoushahWasif/phishing-url-detector/actions/workflows/docker.yml) [![Extension](https://github.com/AnoushahWasif/phishing-url-detector/actions/workflows/extension.yml/badge.svg)](https://github.com/AnoushahWasif/phishing-url-detector/actions/workflows/extension.yml)
 
 Flags phishing links from the URL text alone, without opening the page. Trained on the [PhiUSIIL Phishing URL dataset](https://archive.ics.uci.edu/dataset/967/phiusiil+phishing+url+dataset) (UCI, about 235k URLs, 57% legitimate and 43% phishing), served through a small API, and used by a Chrome extension that warns before you land on a risky page.
 
 URL-only matters for two reasons: it's fast enough to run before a page loads, and it never fetches anything from an attacker's server. The cost is less information to work with, and the project measures how much accuracy that costs.
 
+![Warning banner on a fake sign-in page](docs/extension-banner.png)
+
+**Headline numbers:** the served model catches 62.5% of phishing hosts it has never seen at a 0.99% false-alarm rate. Moving a phishing site to a `.com` gets 13–23% of caught phishing past it. Both numbers, and the dataset problems behind them, are explained below.
+
+## Quick start
+
+Needs Python 3.12 and [uv](https://docs.astral.sh/uv/); the extension also needs Node 22.12+ and Chrome.
+
+```bash
+make install
+make data                                   # ~235k URLs from UCI, SHA-256 checked
+uv run python -m phishing.export            # trains the served model into models/
+uv run uvicorn phishing.api:app_from_env --factory     # API on localhost:8000
+make test                                   # 158 tests, no download needed
+
+cd extension && corepack enable && pnpm install && pnpm build
+# chrome://extensions → Developer mode → Load unpacked → extension/dist
+```
+
+Or build the API as a container: `docker build -t phishing-api . && docker run -p 8000:8000 phishing-api`.
+
+## How it fits together
+
+```mermaid
+flowchart LR
+    A[PhiUSIIL CSV<br/>SHA-256 checked] --> B[hostname<br/>to punycode]
+    B --> C[train 4 models,<br/>threshold for 1% false alarms]
+    C --> D[model.joblib<br/>+ manifest with hash]
+    D -->|hash checked<br/>before loading| E[FastAPI /score]
+    F[Chrome extension] -->|scheme://host/ only| E
+    E -->|label, score, reasons| F
+    F --> G[banner + badge]
+```
+
+More detail, including the threat model, in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
 ## Early finding: the dataset has a shortcut
 
 Every legitimate URL in PhiUSIIL is a bare homepage like `https://www.example.org`, and none of them have a path or sit on free hosting. A one-line regex ("is it a bare `https://www.` homepage?") gets **99.56% accuracy** with no machine learning at all. Models trained on raw URLs would learn that formatting difference instead of phishing, so this project trains on the **hostname only** and reports results there. Details in [notebooks/01_eda.ipynb](notebooks/01_eda.ipynb).
 
-## Results so far (hostname only, test domains never seen in training)
+## Results (hostname only, test domains never seen in training)
 
 Threshold chosen on a validation slice for at most 1% false alarms, then applied unchanged to the test set (47k URLs).
 
@@ -28,7 +64,7 @@ Threshold chosen on a validation slice for at most 1% false alarms, then applied
 - LightGBM matches the random forest's recall at an eighth of the training time.
 - A random row split instead of the domain split would have reported 61.9% and 65.9% for the first two: 4–6 points too optimistic, because the model gets to see other pages of the same domains in training.
 
-These are still unflattering numbers. With the hostname alone, roughly 40% of phishing hosts look ordinary (`maria.susypro.com`). Day 6 attacks the models on purpose (homoglyphs, shorteners, padded subdomains) to see where each one breaks.
+These are unflattering numbers on purpose. With the hostname alone, roughly 40% of phishing hosts look ordinary (`maria.susypro.com`), and no model can tell them apart without more information.
 
 ## Attacking it: where the models break
 
@@ -80,8 +116,6 @@ The API now passes a short list of well-known domains without scoring them. The 
 
 ## Chrome extension
 
-![Warning banner on a fake sign-in page](docs/extension-banner.png)
-
 The extension in [`extension/`](extension/) asks the scoring API about each site you open and shows a banner if the label is `phishing`. It warns and never blocks. A red "!" on the toolbar icon shows the same warning, and the page can't remove that one.
 
 ```bash
@@ -111,24 +145,40 @@ Limitations:
 - If the API is down there's no banner, only a grey "?" badge. The extension fails open: the alternative would be blocking browsing whenever the API is off.
 - On pages the extension doesn't run on (`chrome://`, new tab), the badge from the previous page can stay until the next check.
 
-## Plan
+## Security checks in CI
 
-- [x] EDA: URL length, TLDs, subdomains, HTTPS, class balance
-- [x] URL-only feature extractor with tests
-- [x] Baselines (logistic regression, random forest), judged mostly on missed phishing
-- [x] LightGBM and a character-level model on the hostname text
-- [x] Robustness: homoglyphs, URL shorteners, long paths. Where does it break?
-- [x] FastAPI `/score` endpoint + Docker
-- [x] Chrome extension (TypeScript, Manifest V3)
-- [ ] CI with security scans
+Every pull request runs:
+- **Tests and lint:** ruff and 158 Python tests; ESLint, a TypeScript type check and 112 Vitest tests for the extension.
+- **Semgrep:** Python, TypeScript, Dockerfile and secrets rules, pinned to one version.
+- **Dependency audits:** pip-audit on the locked Python packages, `pnpm audit` on the extension.
+- **Gitleaks:** over the full git history.
+- **The container:** built, started, sent a real request, and checked that it runs as a non-root user. Then Trivy scans it and fails the build on any fixable HIGH or CRITICAL vulnerability.
+
+At the time of writing, every scan comes back clean (0 HIGH/CRITICAL issues in the image's 87 Debian packages and its Python packages).
+
+## Limitations
+
+- **Hostname only.** About 40% of phishing hosts look like ordinary domains, and the model misses them. Page content or domain age would help, but both mean contacting the attacker's server or another service.
+- **TLD dependence.** Moving to a `.com` gets 13–23% of caught phishing through.
+- **Dataset artefacts.** Every shortener, free-hosting and GitHub URL in PhiUSIIL is phishing. The API returns "unknown" for shorteners and passes 16 hand-picked big domains, but free-hosting sites like GitHub Pages are still flagged.
+- **One dataset, one snapshot.** Phishing changes month to month. Nothing here retrains the model or watches its accuracy drift.
+- **The extension fails open and only warns.** Its own limitations are listed in the extension section above.
+
+## Project structure
+
+```
+src/phishing/    data download, features, split, models, attacks, export, API
+tests/           pytest: features, models, robustness, API, model integrity
+extension/       Chrome extension (TypeScript, Manifest V3) and its Vitest tests
+notebooks/       EDA and feature checks, dead ends included
+reports/         model comparison and robustness results (JSON and figures)
+docs/            ARCHITECTURE.md with the threat model
+Dockerfile       two stages: train, then a slim non-root image with only the model
+```
 
 ## Stack
 
-Python 3.12, pandas, scikit-learn, LightGBM, FastAPI, pytest, ruff, uv. Extension: TypeScript, Manifest V3, esbuild, Vitest, ESLint.
-
-## Architecture
-
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). It includes a threat model focused on how attackers would try to get past the detector.
+Python 3.12, pandas, scikit-learn, LightGBM, FastAPI, pytest, ruff, uv, Docker. Extension: TypeScript, Manifest V3, esbuild, Vitest, ESLint.
 
 ## License
 

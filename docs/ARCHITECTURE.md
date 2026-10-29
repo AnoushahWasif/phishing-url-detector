@@ -32,7 +32,7 @@ flowchart LR
 | Training | `src/phishing/train.py` | Split, baselines, LightGBM, char n-gram model; saves the chosen model |
 | Evaluation | `src/phishing/metrics.py` | Recall on phishing, false-positive rate on legit sites, PR-AUC; robustness test sets |
 | API | `src/phishing/api.py` | `POST /score {url}` → `{score, label, reasons}`. Stateless, runs in Docker |
-| Extension | `extension/` | TypeScript, Manifest V3. Checks top-level navigations, shows a banner, never blocks the page |
+| Extension | `extension/` | TypeScript, Manifest V3. A content script asks the service worker about the page; the worker sends scheme + host to the API, caches the verdict, sets the toolbar badge and tells the content script to show a banner. Never blocks the page |
 
 ## Decisions
 
@@ -42,6 +42,8 @@ flowchart LR
 - **Split by domain, not by row.** The same domain can appear many times. A random row split lets the model memorise domains and look better than it is.
 - **Feature extractor is a pure function with unit tests.** The same code runs in training and in the API, so they can't drift apart.
 - **The extension warns, it doesn't block.** A model will be wrong sometimes. Blocking a legitimate site is worse for trust than a dismissible banner.
+- **The extension sends scheme + host only (added Day 8).** The model reads nothing but the hostname, so the path, query string, port and any credentials in the URL never leave the browser. A reset-password link with a token in it is sent as `https://site.example/`.
+- **The content script asks; the browser says which page (added Day 8).** Instead of `webNavigation`, the content script sends an empty "check" message and the service worker reads the URL from the message sender, which Chrome fills in. A page can't make the extension score some other URL, and the extension needs one permission fewer than planned.
 
 ## Threat model
 
@@ -64,8 +66,11 @@ The detector is a security control, so the main threat is attackers **adapting t
 | STRIDE | Threat | Mitigation |
 |--------|--------|------------|
 | Spoofing | Another site or extension calls the API | CORS limited to the extension origin. It's a demo service with no user data, so no auth for now |
+| Spoofing | A page or another extension asks the service worker for a verdict, or claims a different URL | No `externally_connectable`, so pages can't message the worker; messages from another extension id or from an iframe are ignored; the URL comes from the sender, never from the message |
 | Tampering | A tampered or malicious model file is loaded (`joblib` is pickle, and pickle runs code on load) | Only load the model built by this repo's pipeline. Check its hash at startup |
+| Tampering | The phishing page hides or rewrites the banner | Closed shadow root (page CSS and scripts can't reach inside), inline `!important` position. A page can still delete the element, so the toolbar badge shows "!" too, and the page can't touch that |
+| Tampering | A hostile or broken API response injects markup into the banner | Response shape checked, reasons trimmed to 5 × 200 characters, rendered with `textContent` only; a lint rule bans `innerHTML` in the extension |
 | Repudiation | n/a | No accounts and no actions to deny |
-| Information disclosure | The browsing history of the user is sent to the API | Only top-level navigations are sent, never page content. Nothing is logged except counts. The README says this plainly. Running the API locally is the default |
+| Information disclosure | The browsing history of the user is sent to the API | Only scheme + host of top-level pages are sent, never paths, queries or page content. Local and private addresses aren't sent at all. Verdicts are cached in memory-only session storage. The API logs nothing except counts. Running the API locally is the default |
 | Denial of service | Huge or many requests | Max URL length 2,048, request body limit, rate limit per client |
-| Elevation of privilege | The extension asks for more access than it needs | Minimal Manifest V3 permissions (`webNavigation`, `storage`, the API host). No `<all_urls>` content-script access beyond the banner |
+| Elevation of privilege | The extension asks for more access than it needs | Manifest V3 with `storage` plus host access to the API only, checked by a test. The content script has to match all http(s) pages to show a banner, so Chrome still shows the "read and change data on all websites" warning at install; it reads nothing from the page and stays idle unless the worker says to warn |

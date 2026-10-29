@@ -78,6 +78,39 @@ The first live test scored `https://github.com/login` as phishing (0.87). The da
 
 The API now passes a short list of well-known domains without scoring them. The check uses the registered domain, so `google.com.evil.xyz` (registered domain `evil.xyz`) and `someone.github.io` (each Pages site is its own domain) are still scored. Sixteen hand-picked domains is a stopgap; a real deployment would load a top-sites list like Tranco and refresh it.
 
+## Chrome extension
+
+![Warning banner on a fake sign-in page](docs/extension-banner.png)
+
+The extension in [`extension/`](extension/) asks the scoring API about each site you open and shows a banner if the label is `phishing`. It warns and never blocks. A red "!" on the toolbar icon shows the same warning, and the page can't remove that one.
+
+```bash
+docker run -p 8000:8000 phishing-api          # the API from above, on localhost:8000
+cd extension
+corepack enable && pnpm install && pnpm build
+# chrome://extensions → Developer mode → Load unpacked → extension/dist
+```
+
+What leaves the browser:
+- Only `scheme://host/`. The model reads nothing else, so `https://site.example/reset?token=abc` is sent as `https://site.example/`.
+- Nothing at all for `localhost`, private network addresses (`192.168.x.x`, `10.x.x.x`, …), dotless intranet names, or non-web pages (`chrome://`, `file://`).
+- Verdicts are cached per host for 10 minutes in session storage, which lives in memory and is cleared when Chrome closes.
+
+How it's locked down:
+- Permissions are `storage` plus host access to the API. A test fails if the manifest asks for more.
+- The page URL comes from Chrome (the message sender), not from the page, so a page can't make the extension score some other site.
+- The banner sits in a closed shadow root and builds its text with `textContent`. A test feeds it `<img onerror>` and `<script>` reasons, and a lint rule bans `innerHTML`.
+- The API call sends no cookies, follows no redirects, times out after 5 seconds and caps the response at 16 KB. A 429 pauses checks for the `Retry-After` time (at most 10 minutes).
+
+112 tests cover these checks: bad responses, skipped addresses, cache expiry and tampering, the banner, and the manifest. I also broke the private-address check, the top-frame check and the text-only rendering one at a time, and each break failed its test. Checked end to end in Chromium against the real API: the phishing-looking host got the banner, `wikipedia.org` and `example.com` didn't, and `192.168.1.1` was never sent.
+
+Limitations:
+- The API address is fixed at `http://localhost:8000` in `src/config.ts` and the manifest. Pointing it elsewhere means changing both and rebuilding.
+- Chrome warns at install that the extension can "read and change data on all websites". The content script has to run on every page to show a banner, even though it reads nothing.
+- A phishing page can delete the banner element. The toolbar badge is the fallback.
+- If the API is down there's no banner, only a grey "?" badge. The extension fails open: the alternative would be blocking browsing whenever the API is off.
+- On pages the extension doesn't run on (`chrome://`, new tab), the badge from the previous page can stay until the next check.
+
 ## Plan
 
 - [x] EDA: URL length, TLDs, subdomains, HTTPS, class balance
@@ -86,12 +119,12 @@ The API now passes a short list of well-known domains without scoring them. The 
 - [x] LightGBM and a character-level model on the hostname text
 - [x] Robustness: homoglyphs, URL shorteners, long paths. Where does it break?
 - [x] FastAPI `/score` endpoint + Docker
-- [ ] Chrome extension (TypeScript, Manifest V3)
+- [x] Chrome extension (TypeScript, Manifest V3)
 - [ ] CI with security scans
 
 ## Stack
 
-Python 3.12, pandas, scikit-learn, LightGBM, FastAPI, TypeScript (extension), pytest, ruff, uv.
+Python 3.12, pandas, scikit-learn, LightGBM, FastAPI, pytest, ruff, uv. Extension: TypeScript, Manifest V3, esbuild, Vitest, ESLint.
 
 ## Architecture
 

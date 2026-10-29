@@ -30,6 +30,12 @@ jobs:
           test "$(curl -s -o /dev/null -w '%{http_code}' -X POST localhost:8000/score \
             -H 'content-type: application/json' -d '{"url": "javascript:alert(1)"}')" = "422"
 
+      # Exact version: a scanner sees the whole image, so a moved tag would be a supply-chain risk.
+      - name: Scan the image with Trivy
+        run: >
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.58.1
+          image --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed --no-progress phishing-api
+
       - name: Container logs
         if: failure()
         run: docker logs api || true

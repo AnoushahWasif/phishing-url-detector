@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      # LightGBM needs OpenMP to import.
+      - run: sudo apt-get install -y --no-install-recommends libgomp1
+      - run: uv sync --frozen
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      # Tests train on generated URLs, so they need no dataset download.
+      - run: uv run pytest
+
+  semgrep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      # Exact version: a scanner sees all the code, so it shouldn't change under us.
+      - run: >
+          uvx semgrep@1.182.1 scan --error --metrics=off
+          --config p/python --config p/typescript --config p/secrets --config p/dockerfile
+          src extension/src Dockerfile
+
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv export --format requirements-txt --no-dev --no-emit-project > requirements.txt
+      - run: uvx pip-audit -r requirements.txt --no-deps --disable-pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: corepack enable
+      - name: Extension dependencies
+        working-directory: extension
+        run: pnpm audit --prod
+
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

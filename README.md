@@ -63,7 +63,7 @@ curl -X POST localhost:8000/score -H 'content-type: application/json'   -d '{"ur
 #  "reasons":["The address is a raw IP, not a domain name","Lots of digits in the host"]}
 ```
 
-Without Docker: `uv run python -m phishing.model_store` then `uv run uvicorn phishing.api:app_from_env --factory`.
+Without Docker: `uv run python -m phishing.export` then `uv run uvicorn phishing.api:app_from_env --factory`.
 
 - Serves the character n-gram model (62.5% recall at 0.99% false alarms on unseen domains).
 - URL shorteners answer `"unknown"` instead of a guess, because the real destination is hidden.

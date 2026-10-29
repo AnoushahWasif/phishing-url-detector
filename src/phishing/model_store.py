@@ -1,21 +1,17 @@
-"""Save the served model next to a manifest, and load it back only if its hash matches.
+"""Load the served model only if its hash matches the manifest or deploy config.
 
 joblib files are pickles, and unpickling runs code. So the hash is checked before
-joblib.load ever touches the file.
+joblib.load ever touches the file. Nothing here imports training code, so the API
+image doesn't need it.
 """
 
 import hashlib
 import hmac
 import json
 from dataclasses import dataclass
-from datetime import UTC, datetime
 from pathlib import Path
 
 import joblib
-import sklearn
-
-from phishing.metrics import evaluate
-from phishing.train import fit_all
 
 SERVED_MODEL = "char_ngram_logreg"
 MODEL_FILE, MANIFEST_FILE = "model.joblib", "model.json"
@@ -40,28 +36,6 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def export(out_dir: Path = Path("models"), df=None) -> dict:
-    trained = fit_all(df, only=[SERVED_MODEL])
-    model, threshold = trained.models[SERVED_MODEL], trained.thresholds[SERVED_MODEL]
-    test_scores = model.predict_proba(trained.X_test)[:, 1]
-    metrics = evaluate(trained.test["is_phishing"].to_numpy(), test_scores, threshold)
-
-    out_dir.mkdir(parents=True, exist_ok=True)
-    path = out_dir / MODEL_FILE
-    joblib.dump(model, path)
-    manifest = {
-        "model": SERVED_MODEL,
-        "threshold": threshold,
-        "sha256": sha256(path),
-        "sklearn_version": sklearn.__version__,
-        "created_utc": datetime.now(UTC).isoformat(timespec="seconds"),
-        "test_recall": round(metrics["recall"], 4),
-        "test_false_positive_rate": round(metrics["false_positive_rate"], 4),
-    }
-    (out_dir / MANIFEST_FILE).write_text(json.dumps(manifest, indent=2))
-    return manifest
-
-
 def load_model(model_dir: Path, expected_sha256: str | None = None) -> LoadedModel:
     """Refuse to load unless the file matches the expected hash.
 
@@ -83,7 +57,3 @@ def load_model(model_dir: Path, expected_sha256: str | None = None) -> LoadedMod
     if not hmac.compare_digest(sha256(path), expected):
         raise ModelIntegrityError("model file hash does not match; refusing to load it")
     return LoadedModel(joblib.load(path), threshold, manifest)
-
-
-if __name__ == "__main__":
-    print(json.dumps(export(), indent=2))

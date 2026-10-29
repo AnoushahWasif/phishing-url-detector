@@ -6,7 +6,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from phishing.api import MAX_URL_LENGTH, RateLimiter, create_app, reasons_for
-from phishing.model_store import ModelIntegrityError, export, load_model, sha256
+from phishing.export import export
+from phishing.model_store import ModelIntegrityError, load_model, sha256
 from tests.test_robustness import synthetic_df
 
 
@@ -223,3 +224,16 @@ def test_cors_only_for_configured_origin(model_dir):
 def test_reasons_ignore_punycode_hyphens():
     assert not any("hyphens" in r for r in reasons_for("https://xn--pypal-4ve.com"))
     assert any("non-Latin" in r for r in reasons_for("https://xn--pypal-4ve.com"))
+
+
+def test_api_does_not_import_training_code():
+    # The served image shouldn't need LightGBM (or its system library) just to score.
+    import subprocess
+    import sys
+
+    code = (
+        "import sys, phishing.api; "
+        "print('lightgbm' in sys.modules, 'phishing.train' in sys.modules)"
+    )
+    out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True)
+    assert out.stdout.strip() == "False False"

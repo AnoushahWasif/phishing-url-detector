@@ -52,6 +52,32 @@ Two "0%" results that are not strengths:
 - **URL shorteners:** every `bit.ly` and `tinyurl.com` link in the dataset is phishing (289 of 289), so the models flag the shortener itself. A real extension would flag every legitimate short link too. The honest fix is to follow the redirect first, which a URL-only model can't do.
 - **Free hosting** (`*.web.app`, `*.github.io`): the dataset has no legitimate sites there, so the models flag all of them, including real GitHub Pages sites.
 
+## Scoring API
+
+```bash
+docker build -t phishing-api .        # downloads the dataset, trains, ships only the model
+docker run -p 8000:8000 phishing-api
+
+curl -X POST localhost:8000/score -H 'content-type: application/json'   -d '{"url": "http://192.168.4.20/bank"}'
+# {"host":"192.168.4.20","label":"phishing","score":0.9974,"threshold":0.7879,
+#  "reasons":["The address is a raw IP, not a domain name","Lots of digits in the host"]}
+```
+
+Without Docker: `uv run python -m phishing.model_store` then `uv run uvicorn phishing.api:app_from_env --factory`.
+
+- Serves the character n-gram model (62.5% recall at 0.99% false alarms on unseen domains).
+- URL shorteners answer `"unknown"` instead of a guess, because the real destination is hidden.
+- The model file's SHA-256 is checked **before** it's loaded (joblib files are pickles, and loading a pickle runs code). Set `PHISHING_MODEL_SHA256` to pin the exact model; a mismatch stops the server from starting.
+- The URLs people visit are never logged. Error messages don't echo the input. `/health` reports only counts per label.
+- Only `http`/`https` URLs up to 2,048 characters, bodies up to 4 KB, unknown fields rejected, 60 requests per minute per client, CORS limited to `PHISHING_CORS_ORIGINS`.
+- The image is built and tested on every push by [a GitHub Actions workflow](.github/workflows/docker.yml), runs as a non-root user and holds no dataset.
+
+### A false alarm on github.com
+
+The first live test scored `https://github.com/login` as phishing (0.87). The dataset explains it: all 408 github.com and github.io URLs in it are phishing (abused Pages sites and repos) and none are legitimate, so the model learned "github" as a warning sign. `google.com` has the same problem (10 rows, all phishing).
+
+The API now passes a short list of well-known domains without scoring them. The check uses the registered domain, so `google.com.evil.xyz` (registered domain `evil.xyz`) and `someone.github.io` (each Pages site is its own domain) are still scored. Sixteen hand-picked domains is a stopgap; a real deployment would load a top-sites list like Tranco and refresh it.
+
 ## Plan
 
 - [x] EDA: URL length, TLDs, subdomains, HTTPS, class balance
@@ -59,7 +85,7 @@ Two "0%" results that are not strengths:
 - [x] Baselines (logistic regression, random forest), judged mostly on missed phishing
 - [x] LightGBM and a character-level model on the hostname text
 - [x] Robustness: homoglyphs, URL shorteners, long paths. Where does it break?
-- [ ] FastAPI `/score` endpoint + Docker
+- [x] FastAPI `/score` endpoint + Docker
 - [ ] Chrome extension (TypeScript, Manifest V3)
 - [ ] CI with security scans
 

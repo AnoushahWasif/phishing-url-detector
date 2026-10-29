@@ -81,7 +81,7 @@ class Trained:
     fit_seconds: dict[str, float]
 
 
-def fit_all(df: pd.DataFrame | None = None) -> Trained:
+def fit_all(df: pd.DataFrame | None = None, only: list[str] | None = None) -> Trained:
     df = load() if df is None else df
     train, test = grouped_split(df, seed=SEED)
     # Threshold comes from a separate validation slice: a model's scores on its own
@@ -92,6 +92,8 @@ def fit_all(df: pd.DataFrame | None = None) -> Trained:
 
     fitted, thresholds, seconds = {}, {}, {}
     for name, model in models().items():
+        if only is not None and name not in only:
+            continue
         start = time.perf_counter()
         fitted[name] = model.fit(X_fit, y_fit)
         seconds[name] = round(time.perf_counter() - start, 1)
